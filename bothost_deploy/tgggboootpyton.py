@@ -9,15 +9,13 @@ TOKEN = os.environ.get("BOT_TOKEN") or "ТВОЙ_ТОКЕН_СЮДА"
 # Кошелёк для USDT (замени на свой)
 USDT_WALLET = "TQYkqKxpK8nMpJ5Qz5g5LxKqZvHp3WYQyA"
 
-# Банковские реквизиты (замени на свои)
-BANK_NAME = "Т-Банк"
+# Банковская карта (замени на свою)
 BANK_CARD = "1234 5678 9012 3456"
-BANK_HOLDER = "Иванов Иван Иванович"
 
 # ========== ИНИЦИАЛИЗАЦИЯ БОТА ==========
 bot = telebot.TeleBot(TOKEN)
 
-# Хранилище заказов (в реальном проекте используй БД)
+# Хранилище заказов
 orders = {}
 
 # ========== ГЕНЕРАТОРЫ ==========
@@ -97,7 +95,6 @@ def show_catalog(message):
 def show_split_balances(message):
     text = (
         "🚀 *Аккаунты Яндекс Сплит*\n\n"
-        "Готовые рекламные кабинеты с уже залитым балансом.\n"
         "✅ Прогретые\n"
         "✅ Готовы к работе\n\n"
         "💰 *Цена: 5% от баланса*\n\n"
@@ -107,13 +104,7 @@ def show_split_balances(message):
 
 @bot.message_handler(func=lambda message: message.text == "💼 Корпоративный счет")
 def show_corporate(message):
-    text = (
-        "💼 *Корпоративный счет Яндекса*\n\n"
-        "✅ Полностью верифицированный\n"
-        "✅ Высокие лимиты\n"
-        "✅ Прогретый и готов к работе\n\n"
-        "💰 *Цена: 5000 ₽*"
-    )
+    text = "💼 *Корпоративный счет Яндекса*\n✅ Прогрет\n💰 *Цена: 5000 ₽*"
     keyboard = telebot.types.InlineKeyboardMarkup()
     keyboard.add(telebot.types.InlineKeyboardButton(
         text="💼 Купить за 5000 ₽",
@@ -126,12 +117,7 @@ def show_corporate(message):
 
 @bot.message_handler(func=lambda message: message.text == "🚗 Яндекс Каршеринг")
 def show_carsharing(message):
-    text = (
-        "🚗 *Аккаунт Яндекс Каршеринга*\n\n"
-        "✅ Прогретый аккаунт\n"
-        "✅ Готов к использованию\n\n"
-        "💰 *Цена: 1500 ₽*"
-    )
+    text = "🚗 *Аккаунт Яндекс Каршеринга*\n✅ Прогретый\n💰 *Цена: 1500 ₽*"
     keyboard = telebot.types.InlineKeyboardMarkup()
     keyboard.add(telebot.types.InlineKeyboardButton(
         text="🚗 Купить за 1500 ₽",
@@ -146,7 +132,7 @@ def show_carsharing(message):
 def show_purchases(message):
     bot.send_message(
         message.chat.id,
-        "📦 *История покупок*\n\nПока пусто. После оплаты товары появятся здесь.",
+        "📦 *История покупок*\n\nПока пусто.",
         parse_mode="Markdown"
     )
 
@@ -154,11 +140,6 @@ def show_purchases(message):
 def show_help(message):
     help_text = (
         "❓ *Помощь*\n\n"
-        "📦 *Как купить:*\n"
-        "1. Выбери товар в каталоге\n"
-        "2. Оплати удобным способом\n"
-        "3. Напиши в поддержку чек\n"
-        "4. Получи аккаунт в течение 24 часов\n\n"
         "📩 *Поддержка:* @support_shop\n"
         "⏱ Время ответа: до 15 минут"
     )
@@ -273,7 +254,7 @@ def handle_callback(call):
         )
         return
     
-    # ===== ОПЛАТА КРИПТОЙ (ТОЛЬКО ТЕКСТ, БЕЗ ССЫЛОК) =====
+    # ===== ОПЛАТА КРИПТОЙ =====
     if data.startswith("pay_crypto_"):
         parts = data.split("_")
         order_id = parts[2]
@@ -283,22 +264,12 @@ def handle_callback(call):
             f"🪙 *Оплата криптовалютой USDT*\n\n"
             f"🧾 *Номер заказа:* `{order_id}`\n"
             f"💰 *Сумма к оплате:* {price} USDT\n\n"
-            f"📤 *Реквизиты для перевода:*\n"
+            f"📤 *Переведите оплату на адрес:*\n"
             f"`{USDT_WALLET}`\n\n"
-            f"🌐 *Сеть:* TRC-20 (USDT)\n\n"
-            f"📌 *Инструкция:*\n"
-            f"1. Открой свой криптокошелек (Binance, Bybit, OKX и т.д.)\n"
-            f"2. Выбери перевод USDT в сети TRC-20\n"
-            f"3. Введи указанный выше кошелек\n"
-            f"4. Укажи сумму {price} USDT\n"
-            f"5. Отправь перевод\n\n"
-            f"✅ *После оплаты:*\n"
-            f"Сделай скриншот чека и отправь его в поддержку:\n"
-            f"📩 @support_shop\n\n"
-            f"⏰ Аккаунт будет выдан в течение 24 часов после подтверждения оплаты."
+            f"⏰ В течение 24 часов после оплаты вам придут данные от аккаунта.\n\n"
+            f"📩 По вопросам: @support_shop"
         )
         
-        # Простая кнопка "Назад" без ссылок
         keyboard = telebot.types.InlineKeyboardMarkup()
         keyboard.add(telebot.types.InlineKeyboardButton(
             text="🔙 Назад в каталог",
@@ -314,33 +285,22 @@ def handle_callback(call):
         )
         return
     
-    # ===== ОПЛАТА КАРТОЙ (ТОЛЬКО ТЕКСТ, БЕЗ ССЫЛОК) =====
+    # ===== ОПЛАТА КАРТОЙ =====
     if data.startswith("pay_card_"):
         parts = data.split("_")
         order_id = parts[2]
-        price = int(parts[3])
+        price = parts[3]
         
         text = (
             f"💳 *Оплата банковской картой*\n\n"
             f"🧾 *Номер заказа:* `{order_id}`\n"
             f"💰 *Сумма к оплате:* {price} ₽\n\n"
-            f"📤 *Реквизиты для перевода:*\n"
-            f"🏦 *Банк:* {BANK_NAME}\n"
-            f"💳 *Номер карты:* `{BANK_CARD}`\n"
-            f"👤 *Получатель:* {BANK_HOLDER}\n\n"
-            f"📌 *Инструкция:*\n"
-            f"1. Открой приложение своего банка\n"
-            f"2. Выбери перевод по номеру карты\n"
-            f"3. Введи указанный выше номер карты\n"
-            f"4. Укажи сумму {price} ₽\n"
-            f"5. Отправь перевод\n\n"
-            f"✅ *После оплаты:*\n"
-            f"Сделай скриншот чека и отправь его в поддержку:\n"
-            f"📩 @support_shop\n\n"
-            f"⏰ Аккаунт будет выдан в течение 24 часов после подтверждения оплаты."
+            f"📤 *Переведите оплату на карту:*\n"
+            f"`{BANK_CARD}`\n\n"
+            f"⏰ В течение 24 часов после оплаты вам придут данные от аккаунта.\n\n"
+            f"📩 По вопросам: @support_shop"
         )
         
-        # Простая кнопка "Назад" без ссылок
         keyboard = telebot.types.InlineKeyboardMarkup()
         keyboard.add(telebot.types.InlineKeyboardButton(
             text="🔙 Назад в каталог",
