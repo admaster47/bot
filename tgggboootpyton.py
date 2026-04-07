@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# Хранилище заказов (в реальном проекте используйте БД)
+# Хранилище заказов
 user_orders = {}
 
 # --- ДАННЫЕ ---
@@ -29,40 +29,41 @@ SPLIT_BALANCES = {
     "150": 150_000
 }
 
-# Курсы (можно обновлять вручную)
+# Курсы
 USD_RUB = 90
 TON_RUB = 350
 STAR_RUB = 1.4
 
 def get_split_price_rub(balance_thousands):
     balance_rub = balance_thousands * 1000
-    return int(balance_rub * 0.05)  # цена в рублях
+    return int(balance_rub * 0.05)
 
 def convert_to_usd(rub):
-    return rub // USD_RUB  # округление в меньшую сторону до целого
+    return rub // USD_RUB
 
 def convert_to_ton(rub):
     ton = rub / TON_RUB
-    return int(ton // 0.5) * 0.5  # округление в меньшую сторону до 0.5
+    return int(ton // 0.5) * 0.5
 
 def convert_to_stars(rub):
-    return int(rub // STAR_RUB)  # округление в меньшую сторону
+    stars = rub // STAR_RUB
+    # Округление до 100 в меньшую сторону
+    return (stars // 100) * 100
 
 PRODUCTS = {
-    "split": {"name": "Яндекс Сплит"},
     "corporate": {"name": "Корпоративный счет Яндекс", "price_rub": 5000},
     "carsharing": {"name": "Аккаунт Яндекс Каршеринг", "price_rub": 1500}
 }
 
-# Реквизиты (замените на свои)
+# Реквизиты (ЗАМЕНИТЕ НА СВОИ)
 CRYPTO_WALLETS = {
     "usdt": "TX7xxxxxxxxxxxxxxxxxxxxxYZ",
     "ton": "EQDxxxxxxxxxxxxxxxxxxxxxyz"
 }
-PAYMENT_SITE = "https://example.com/pay"  # замените на ваш сайт
-PAYMENT_USERNAME = "your_game_username"  # замените на ваш юзернейм
+PAYMENT_SITE = "https://example.com/pay"
+PAYMENT_USERNAME = "your_game_username"
 
-# --- ГЛАВНОЕ МЕНЮ СНИЗУ (ReplyKeyboard) ---
+# --- ГЛАВНОЕ МЕНЮ СНИЗУ ---
 def get_main_menu_keyboard():
     keyboard = [
         [KeyboardButton(text="📦 Каталог")],
@@ -87,13 +88,12 @@ def split_balance_keyboard():
     return builder.as_markup()
 
 def payment_methods_keyboard(product_type, product_data):
-    """product_data: для сплита это баланс, для других - цена в руб"""
+    """Клавиатура выбора метода оплаты"""
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="💵 Оплатить USDT", callback_data=f"pay_usdt|{product_type}|{product_data}"))
     builder.row(InlineKeyboardButton(text="💎 Оплатить TON", callback_data=f"pay_ton|{product_type}|{product_data}"))
     builder.row(InlineKeyboardButton(text="💳 Оплатить картой (звезды)", callback_data=f"pay_card|{product_type}|{product_data}"))
-    builder.row(InlineKeyboardButton(text="🆘 Поддержка", callback_data="support_inline"))
-    builder.row(InlineKeyboardButton(text="◀️ Назад", callback_data="catalog_back"))
+    builder.row(InlineKeyboardButton(text="◀️ Назад в каталог", callback_data="catalog_back"))
     return builder.as_markup()
 
 def back_to_catalog_keyboard():
@@ -119,7 +119,6 @@ def save_order(user_id, order_num, product_info, amount_rub, amount_usd, amount_
         "status": "pending",
         "created_at": datetime.now()
     }
-    return order_num
 
 # --- ОБРАБОТЧИКИ ---
 @dp.message(Command("start"))
@@ -145,8 +144,9 @@ async def support_handler(message: types.Message):
     await message.answer(
         "🆘 *Поддержка*\n\nСвяжитесь с нами: @your_support_username\n\n"
         "📌 *Что указать при обращении:*\n"
-        "• Номер заказа (выдается при выборе оплаты)\n"
-        "• Сумму и способ оплаты\n\n"
+        "• Номер заказа\n"
+        "• Сумму и способ оплаты\n"
+        "• Скриншот подтверждения\n\n"
         "⏳ *Время выдачи:* в течение 24 часов после оплаты",
         parse_mode="Markdown",
         reply_markup=get_main_menu_keyboard()
@@ -187,6 +187,7 @@ async def split_balance_callback(callback: CallbackQuery):
     price_rub = get_split_price_rub(balance_thousands)
     price_usd = convert_to_usd(price_rub)
     price_ton = convert_to_ton(price_rub)
+    price_stars = convert_to_stars(price_rub)
     
     product_data = f"balance_{balance}"
     text = (
@@ -196,36 +197,59 @@ async def split_balance_callback(callback: CallbackQuery):
         f"   • {price_rub} RUB\n"
         f"   • {price_usd} USD\n"
         f"   • {price_ton} TON\n"
-        f"   • {convert_to_stars(price_rub)} звезд\n\n"
+        f"   • {price_stars} звезд\n\n"
         f"👇 Выберите способ оплаты:"
     )
     await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=payment_methods_keyboard("split", product_data))
     await callback.answer()
 
-@dp.callback_query(lambda c: c.data.startswith("product_corporate") or c.data.startswith("product_carsharing"))
-async def other_products_callback(callback: CallbackQuery):
-    product_key = callback.data.split("_")[1]
-    product = PRODUCTS[product_key]
+@dp.callback_query(lambda c: c.data.startswith("product_corporate"))
+async def corporate_callback(callback: CallbackQuery):
+    product = PRODUCTS["corporate"]
     price_rub = product["price_rub"]
     price_usd = convert_to_usd(price_rub)
     price_ton = convert_to_ton(price_rub)
+    price_stars = convert_to_stars(price_rub)
     
     text = (
-        f"🛒 *{product['name']}*\n\n"
+        f"🏢 *{product['name']}*\n\n"
         f"💰 Стоимость:\n"
         f"   • {price_rub} RUB\n"
         f"   • {price_usd} USD\n"
         f"   • {price_ton} TON\n"
-        f"   • {convert_to_stars(price_rub)} звезд\n\n"
+        f"   • {price_stars} звезд\n\n"
         f"👇 Выберите способ оплаты:"
     )
-    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=payment_methods_keyboard(product_key, price_rub))
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=payment_methods_keyboard("corporate", price_rub))
+    await callback.answer()
+
+@dp.callback_query(lambda c: c.data.startswith("product_carsharing"))
+async def carsharing_callback(callback: CallbackQuery):
+    product = PRODUCTS["carsharing"]
+    price_rub = product["price_rub"]
+    price_usd = convert_to_usd(price_rub)
+    price_ton = convert_to_ton(price_rub)
+    price_stars = convert_to_stars(price_rub)
+    
+    text = (
+        f"🚗 *{product['name']}*\n\n"
+        f"💰 Стоимость:\n"
+        f"   • {price_rub} RUB\n"
+        f"   • {price_usd} USD\n"
+        f"   • {price_ton} TON\n"
+        f"   • {price_stars} звезд\n\n"
+        f"👇 Выберите способ оплаты:"
+    )
+    await callback.message.edit_text(text, parse_mode="Markdown", reply_markup=payment_methods_keyboard("carsharing", price_rub))
     await callback.answer()
 
 @dp.callback_query(lambda c: c.data.startswith("pay_"))
 async def payment_callback(callback: CallbackQuery):
     user_id = callback.from_user.id
-    _, method, product_type, product_data = callback.data.split("|")
+    parts = callback.data.split("|")
+    method = parts[0].split("_")[1]  # usdt, ton, card
+    product_type = parts[1]
+    product_data = parts[2]
     
     # Определяем сумму в рублях
     if product_type == "split":
@@ -233,10 +257,10 @@ async def payment_callback(callback: CallbackQuery):
         amount_rub = get_split_price_rub(balance // 1000)
         product_info = f"Яндекс Сплит (баланс: {balance // 1000} тыс. руб)"
     elif product_type == "corporate":
-        amount_rub = 5000
+        amount_rub = int(product_data)
         product_info = "Корпоративный счет Яндекс"
     elif product_type == "carsharing":
-        amount_rub = 1500
+        amount_rub = int(product_data)
         product_info = "Аккаунт Яндекс Каршеринг"
     else:
         amount_rub = int(product_data)
@@ -250,27 +274,22 @@ async def payment_callback(callback: CallbackQuery):
     order_num = generate_order_number(user_id)
     save_order(user_id, order_num, product_info, amount_rub, amount_usd, amount_ton, amount_stars)
     
-    # Формируем сообщение с инструкцией
+    # ОТПРАВЛЯЕМ НОВОЕ СООБЩЕНИЕ С ИНСТРУКЦИЕЙ (не редактируем старое)
     if method == "usdt":
         instruction = (
             f"💵 *Оплата USDT (TRC20)*\n\n"
             f"📋 *Номер заказа:* `{order_num}`\n"
             f"🛒 *Товар:* {product_info}\n"
             f"💰 *Сумма к оплате:* {amount_usd} USDT\n\n"
-            f"📍 *Реквизиты для перевода:*\n"
-        )
-        await callback.message.edit_text(instruction, parse_mode="Markdown", reply_markup=back_to_catalog_keyboard())
-        # Отдельное сообщение с кошельком
-        await callback.message.answer(
-            f"🏦 *Кошелек USDT (TRC20):*\n`{CRYPTO_WALLETS['usdt']}`\n\n"
+            f"🏦 *Кошелек для перевода:*\n`{CRYPTO_WALLETS['usdt']}`\n\n"
             f"✅ *После оплаты:*\n"
             f"1. Сохраните номер заказа: `{order_num}`\n"
             f"2. Напишите поддержке: @your_support_username\n"
             f"3. Укажите номер заказа и дату/время перевода\n\n"
             f"⏳ *Срок выдачи:* в течение 24 часов после подтверждения оплаты\n\n"
-            f"🔓 После проверки вы получите полный доступ к аккаунту.",
-            parse_mode="Markdown"
+            f"🔓 После проверки вы получите полный доступ к аккаунту."
         )
+        await callback.message.answer(instruction, parse_mode="Markdown", reply_markup=back_to_catalog_keyboard())
         
     elif method == "ton":
         instruction = (
@@ -278,19 +297,15 @@ async def payment_callback(callback: CallbackQuery):
             f"📋 *Номер заказа:* `{order_num}`\n"
             f"🛒 *Товар:* {product_info}\n"
             f"💰 *Сумма к оплате:* {amount_ton} TON\n\n"
-            f"📍 *Реквизиты для перевода:*\n"
-        )
-        await callback.message.edit_text(instruction, parse_mode="Markdown", reply_markup=back_to_catalog_keyboard())
-        await callback.message.answer(
-            f"🏦 *Кошелек TON:*\n`{CRYPTO_WALLETS['ton']}`\n\n"
+            f"🏦 *Кошелек для перевода:*\n`{CRYPTO_WALLETS['ton']}`\n\n"
             f"✅ *После оплаты:*\n"
             f"1. Сохраните номер заказа: `{order_num}`\n"
             f"2. Напишите поддержке: @your_support_username\n"
             f"3. Укажите номер заказа и дату/время перевода\n\n"
             f"⏳ *Срок выдачи:* в течение 24 часов после подтверждения оплаты\n\n"
-            f"🔓 После проверки вы получите полный доступ к аккаунту.",
-            parse_mode="Markdown"
+            f"🔓 После проверки вы получите полный доступ к аккаунту."
         )
+        await callback.message.answer(instruction, parse_mode="Markdown", reply_markup=back_to_catalog_keyboard())
         
     elif method == "card":
         instruction = (
@@ -303,32 +318,18 @@ async def payment_callback(callback: CallbackQuery):
             f"1. Перейдите на сайт: {PAYMENT_SITE}\n"
             f"2. Укажите юзернейм получателя: `{PAYMENT_USERNAME}`\n"
             f"3. Отправьте *{amount_stars} звезд*\n\n"
-        )
-        await callback.message.edit_text(instruction, parse_mode="Markdown", reply_markup=back_to_catalog_keyboard())
-        await callback.message.answer(
             f"✅ *После оплаты:*\n"
             f"1. Сохраните номер заказа: `{order_num}`\n"
             f"2. Сделайте скриншот подтверждения оплаты\n"
             f"3. Напишите поддержке: @your_support_username\n"
             f"4. Укажите номер заказа и приложите скриншот\n\n"
             f"⏳ *Срок выдачи:* в течение 24 часов после подтверждения оплаты\n\n"
-            f"🔓 После проверки вы получите полный доступ к аккаунту.",
-            parse_mode="Markdown"
+            f"🔓 После проверки вы получите полный доступ к аккаунту."
         )
+        await callback.message.answer(instruction, parse_mode="Markdown", reply_markup=back_to_catalog_keyboard())
     
-    await callback.answer()
-
-@dp.callback_query(lambda c: c.data == "support_inline")
-async def support_inline_callback(callback: CallbackQuery):
-    await callback.message.answer(
-        "🆘 *Поддержка*\n\nСвяжитесь с нами: @your_support_username\n\n"
-        "📌 *Что указать при обращении:*\n"
-        "• Номер заказа\n"
-        "• Сумму и способ оплаты\n"
-        "• Скриншот подтверждения (для карты/звезд)\n\n"
-        "⏳ *Время выдачи:* в течение 24 часов после оплаты",
-        parse_mode="Markdown"
-    )
+    # Удаляем клавиатуру выбора оплаты из предыдущего сообщения (опционально)
+    await callback.message.edit_reply_markup(reply_markup=None)
     await callback.answer()
 
 # --- ЗАПУСК ---
