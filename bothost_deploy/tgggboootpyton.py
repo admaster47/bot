@@ -15,18 +15,11 @@ BANK_CARD = "1234 5678 9012 3456"
 # ========== ИНИЦИАЛИЗАЦИЯ БОТА ==========
 bot = telebot.TeleBot(TOKEN)
 
-# Хранилище заказов
-orders = {}
-
-# ========== ГЕНЕРАТОРЫ ==========
-def generate_order_id():
-    return f"ORD{int(time.time())}{random.randint(10, 99)}"
-
 # ========== КЛАВИАТУРЫ ==========
 def main_keyboard():
     keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-    keyboard.row("📦 Каталог", "💰 Мои покупки")
-    keyboard.row("❓ Помощь")
+    keyboard.row("📦 Каталог")
+    keyboard.row("💰 Мои покупки", "❓ Помощь")
     return keyboard
 
 def catalog_keyboard():
@@ -37,48 +30,23 @@ def catalog_keyboard():
     return keyboard
 
 def split_balances_keyboard():
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    balances = [30000, 50000, 70000, 100000, 150000]
-    for balance in balances:
-        price = int(balance * 0.05)
-        keyboard.add(telebot.types.InlineKeyboardButton(
-            text=f"{balance} ₽ (цена {price} ₽)",
-            callback_data=f"split_{balance}"
-        ))
-    keyboard.add(telebot.types.InlineKeyboardButton(
-        text="🔙 Назад", callback_data="back_to_catalog"
-    ))
+    keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.row("30 000 ₽", "50 000 ₽", "70 000 ₽")
+    keyboard.row("100 000 ₽", "150 000 ₽")
+    keyboard.row("🔙 Назад в каталог")
     return keyboard
 
-def payment_keyboard(order_id, price):
-    """Клавиатура выбора способа оплаты"""
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    keyboard.add(telebot.types.InlineKeyboardButton(
-        text="🪙 Оплата криптой (USDT)",
-        callback_data=f"pay_crypto_{order_id}_{price}"
-    ))
-    keyboard.add(telebot.types.InlineKeyboardButton(
-        text="💳 Оплата картой (₽)",
-        callback_data=f"pay_card_{order_id}_{price}"
-    ))
-    keyboard.add(telebot.types.InlineKeyboardButton(
-        text="🔙 Назад", callback_data="back_to_catalog"
-    ))
-    return keyboard
-
-# ========== ОБРАБОТЧИКИ КОМАНД ==========
+# ========== ОБРАБОТЧИКИ ==========
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     welcome_text = (
-        "🖐️ *Добро пожаловать в магазин!*\n\n"
-        "Мы продаём:\n"
-        "✅ *Прогретые аккаунты Яндекс Сплит* (баланс 30-150к, цена 5%)\n"
-        "✅ *Корпоративные счета Яндекса* (5000 ₽)\n"
-        "✅ *Аккаунты Яндекс Каршеринга* (1500 ₽)\n\n"
-        "Все аккаунты прогреты и готовы к работе!\n\n"
-        "📦 *Каталог*\n"
-        "💰 *Мои покупки*\n"
-        "❓ *Помощь*"
+        "🤖 *Привет! Я бот для покупки аккаунтов.*\n\n"
+        "У нас вы можете купить:\n"
+        "✅ *Аккаунты Яндекс Сплит* — от 30 000₽ до 150 000₽ (цена 5% от баланса)\n"
+        "✅ *Корпоративные счета Яндекса* — 5 000₽\n"
+        "✅ *Аккаунты Яндекс Каршеринга* — 1 500₽\n\n"
+        "Все аккаунты *прогретые* и готовы к работе!\n\n"
+        "👇 *Нажмите «Каталог» чтобы выбрать товар*"
     )
     bot.send_message(message.chat.id, welcome_text, parse_mode="Markdown", reply_markup=main_keyboard())
 
@@ -86,7 +54,7 @@ def send_welcome(message):
 def show_catalog(message):
     bot.send_message(
         message.chat.id,
-        "📦 *Выбери категорию:*",
+        "📦 *Выберите категорию товаров:*",
         parse_mode="Markdown",
         reply_markup=catalog_keyboard()
     )
@@ -95,44 +63,109 @@ def show_catalog(message):
 def show_split_balances(message):
     text = (
         "🚀 *Аккаунты Яндекс Сплит*\n\n"
-        "✅ Прогретые\n"
-        "✅ Готовы к работе\n\n"
         "💰 *Цена: 5% от баланса*\n\n"
-        "Выбери нужный баланс:"
+        "Выберите нужный баланс:"
     )
     bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=split_balances_keyboard())
 
+@bot.message_handler(func=lambda message: message.text in ["30 000 ₽", "50 000 ₽", "70 000 ₽", "100 000 ₽", "150 000 ₽"])
+def handle_split_purchase(message):
+    balance_text = message.text.replace(" ₽", "").replace(" ", "")
+    balance = int(balance_text)
+    price = int(balance * 0.05)
+    
+    order_id = f"ORD{int(time.time())}{random.randint(10, 99)}"
+    
+    text = (
+        f"✅ *Вы выбрали:* Яндекс Сплит ({balance} ₽)\n"
+        f"🧾 *Номер заказа:* `{order_id}`\n"
+        f"💰 *Сумма к оплате:* {price} ₽\n\n"
+        f"👇 *Выберите способ оплаты:*"
+    )
+    
+    keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.row("🪙 Оплатить криптой (USDT)", "💳 Оплатить картой")
+    keyboard.row("🔙 Назад в каталог")
+    
+    # Сохраняем заказ
+    bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=keyboard)
+
 @bot.message_handler(func=lambda message: message.text == "💼 Корпоративный счет")
-def show_corporate(message):
-    text = "💼 *Корпоративный счет Яндекса*\n✅ Прогрет\n💰 *Цена: 5000 ₽*"
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    keyboard.add(telebot.types.InlineKeyboardButton(
-        text="💼 Купить за 5000 ₽",
-        callback_data="corporate"
-    ))
-    keyboard.add(telebot.types.InlineKeyboardButton(
-        text="🔙 Назад", callback_data="back_to_catalog"
-    ))
+def handle_corporate(message):
+    order_id = f"ORD{int(time.time())}{random.randint(10, 99)}"
+    price = 5000
+    
+    text = (
+        f"✅ *Вы выбрали:* Корпоративный счет Яндекса\n"
+        f"🧾 *Номер заказа:* `{order_id}`\n"
+        f"💰 *Сумма к оплате:* {price} ₽\n\n"
+        f"👇 *Выберите способ оплаты:*"
+    )
+    
+    keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.row("🪙 Оплатить криптой (USDT)", "💳 Оплатить картой")
+    keyboard.row("🔙 Назад в каталог")
+    
     bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=keyboard)
 
 @bot.message_handler(func=lambda message: message.text == "🚗 Яндекс Каршеринг")
-def show_carsharing(message):
-    text = "🚗 *Аккаунт Яндекс Каршеринга*\n✅ Прогретый\n💰 *Цена: 1500 ₽*"
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    keyboard.add(telebot.types.InlineKeyboardButton(
-        text="🚗 Купить за 1500 ₽",
-        callback_data="carsharing"
-    ))
-    keyboard.add(telebot.types.InlineKeyboardButton(
-        text="🔙 Назад", callback_data="back_to_catalog"
-    ))
+def handle_carsharing(message):
+    order_id = f"ORD{int(time.time())}{random.randint(10, 99)}"
+    price = 1500
+    
+    text = (
+        f"✅ *Вы выбрали:* Аккаунт Яндекс Каршеринга\n"
+        f"🧾 *Номер заказа:* `{order_id}`\n"
+        f"💰 *Сумма к оплате:* {price} ₽\n\n"
+        f"👇 *Выберите способ оплаты:*"
+    )
+    
+    keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
+    keyboard.row("🪙 Оплатить криптой (USDT)", "💳 Оплатить картой")
+    keyboard.row("🔙 Назад в каталог")
+    
     bot.send_message(message.chat.id, text, parse_mode="Markdown", reply_markup=keyboard)
+
+@bot.message_handler(func=lambda message: message.text == "🪙 Оплатить криптой (USDT)")
+def pay_crypto(message):
+    # Нужно получить последний заказ пользователя
+    # Для простоты используем статическую сумму
+    text = (
+        "🪙 *Оплата криптовалютой USDT*\n\n"
+        f"📤 *Переведите оплату на адрес:*\n"
+        f"`{USDT_WALLET}`\n\n"
+        f"💰 *Сеть:* TRC-20\n\n"
+        f"✅ *После оплаты:*\n"
+        f"В течение 24 часов вам придут данные от аккаунта.\n\n"
+        f"📩 *По вопросам:* @support_shop"
+    )
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+@bot.message_handler(func=lambda message: message.text == "💳 Оплатить картой")
+def pay_card(message):
+    text = (
+        "💳 *Оплата банковской картой*\n\n"
+        f"📤 *Переведите оплату на карту:*\n"
+        f"`{BANK_CARD}`\n\n"
+        f"✅ *После оплаты:*\n"
+        f"В течение 24 часов вам придут данные от аккаунта.\n\n"
+        f"📩 *По вопросам:* @support_shop"
+    )
+    bot.send_message(message.chat.id, text, parse_mode="Markdown")
+
+@bot.message_handler(func=lambda message: message.text == "🔙 Назад в каталог")
+def back_to_catalog(message):
+    show_catalog(message)
+
+@bot.message_handler(func=lambda message: message.text == "🔙 Назад в главное меню")
+def back_to_main(message):
+    send_welcome(message)
 
 @bot.message_handler(func=lambda message: message.text == "💰 Мои покупки")
 def show_purchases(message):
     bot.send_message(
         message.chat.id,
-        "📦 *История покупок*\n\nПока пусто.",
+        "📦 *История покупок*\n\nПока пусто. После оплаты товары появятся здесь.",
         parse_mode="Markdown"
     )
 
@@ -140,183 +173,18 @@ def show_purchases(message):
 def show_help(message):
     help_text = (
         "❓ *Помощь*\n\n"
+        "📦 *Как купить:*\n"
+        "1️⃣ Выберите товар в каталоге\n"
+        "2️⃣ Нажмите на нужный баланс или товар\n"
+        "3️⃣ Выберите способ оплаты\n"
+        "4️⃣ Переведите деньги по реквизитам\n"
+        "5️⃣ Данные аккаунта придут в течение 24 часов\n\n"
         "📩 *Поддержка:* @support_shop\n"
-        "⏱ Время ответа: до 15 минут"
+        "⏱ *Время ответа:* до 15 минут"
     )
     bot.send_message(message.chat.id, help_text, parse_mode="Markdown")
 
-@bot.message_handler(func=lambda message: message.text == "🔙 Назад в главное меню")
-def back_to_main(message):
-    send_welcome(message)
-
-# ========== ОБРАБОТЧИКИ ИНЛАЙН-КНОПОК ==========
-@bot.callback_query_handler(func=lambda call: True)
-def handle_callback(call):
-    bot.answer_callback_query(call.id)
-    
-    data = call.data
-    chat_id = call.message.chat.id
-    message_id = call.message.message_id
-    
-    # Назад в каталог
-    if data == "back_to_catalog":
-        bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=message_id,
-            text="📦 *Выбери категорию:*",
-            parse_mode="Markdown",
-            reply_markup=catalog_keyboard()
-        )
-        return
-    
-    # Выбор баланса Сплита
-    if data.startswith("split_"):
-        balance = int(data.split("_")[1])
-        price = int(balance * 0.05)
-        order_id = generate_order_id()
-        
-        orders[order_id] = {
-            "user_id": call.from_user.id,
-            "product": f"Яндекс Сплит ({balance} ₽)",
-            "price": price,
-            "status": "pending"
-        }
-        
-        text = (
-            f"✅ *Товар:* Яндекс Сплит ({balance} ₽)\n"
-            f"🧾 *Номер заказа:* `{order_id}`\n"
-            f"💰 *Сумма:* {price} ₽\n\n"
-            f"Выбери способ оплаты:"
-        )
-        
-        bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=message_id,
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=payment_keyboard(order_id, price)
-        )
-        return
-    
-    # Корпоративный счёт
-    if data == "corporate":
-        order_id = generate_order_id()
-        price = 5000
-        
-        orders[order_id] = {
-            "user_id": call.from_user.id,
-            "product": "Корпоративный счет Яндекса",
-            "price": price,
-            "status": "pending"
-        }
-        
-        text = (
-            f"✅ *Товар:* Корпоративный счет Яндекса\n"
-            f"🧾 *Номер заказа:* `{order_id}`\n"
-            f"💰 *Сумма:* {price} ₽\n\n"
-            f"Выбери способ оплаты:"
-        )
-        
-        bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=message_id,
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=payment_keyboard(order_id, price)
-        )
-        return
-    
-    # Каршеринг
-    if data == "carsharing":
-        order_id = generate_order_id()
-        price = 1500
-        
-        orders[order_id] = {
-            "user_id": call.from_user.id,
-            "product": "Аккаунт Яндекс Каршеринга",
-            "price": price,
-            "status": "pending"
-        }
-        
-        text = (
-            f"✅ *Товар:* Аккаунт Яндекс Каршеринга\n"
-            f"🧾 *Номер заказа:* `{order_id}`\n"
-            f"💰 *Сумма:* {price} ₽\n\n"
-            f"Выбери способ оплаты:"
-        )
-        
-        bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=message_id,
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=payment_keyboard(order_id, price)
-        )
-        return
-    
-    # ===== ОПЛАТА КРИПТОЙ =====
-    if data.startswith("pay_crypto_"):
-        parts = data.split("_")
-        order_id = parts[2]
-        price = parts[3]
-        
-        text = (
-            f"🪙 *Оплата криптовалютой USDT*\n\n"
-            f"🧾 *Номер заказа:* `{order_id}`\n"
-            f"💰 *Сумма к оплате:* {price} USDT\n\n"
-            f"📤 *Переведите оплату на адрес:*\n"
-            f"`{USDT_WALLET}`\n\n"
-            f"⏰ В течение 24 часов после оплаты вам придут данные от аккаунта.\n\n"
-            f"📩 По вопросам: @support_shop"
-        )
-        
-        keyboard = telebot.types.InlineKeyboardMarkup()
-        keyboard.add(telebot.types.InlineKeyboardButton(
-            text="🔙 Назад в каталог",
-            callback_data="back_to_catalog"
-        ))
-        
-        bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=message_id,
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=keyboard
-        )
-        return
-    
-    # ===== ОПЛАТА КАРТОЙ =====
-    if data.startswith("pay_card_"):
-        parts = data.split("_")
-        order_id = parts[2]
-        price = parts[3]
-        
-        text = (
-            f"💳 *Оплата банковской картой*\n\n"
-            f"🧾 *Номер заказа:* `{order_id}`\n"
-            f"💰 *Сумма к оплате:* {price} ₽\n\n"
-            f"📤 *Переведите оплату на карту:*\n"
-            f"`{BANK_CARD}`\n\n"
-            f"⏰ В течение 24 часов после оплаты вам придут данные от аккаунта.\n\n"
-            f"📩 По вопросам: @support_shop"
-        )
-        
-        keyboard = telebot.types.InlineKeyboardMarkup()
-        keyboard.add(telebot.types.InlineKeyboardButton(
-            text="🔙 Назад в каталог",
-            callback_data="back_to_catalog"
-        ))
-        
-        bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=message_id,
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=keyboard
-        )
-        return
-
-# ========== ЗАПУСК БОТА ==========
+# ========== ЗАПУСК ==========
 if __name__ == "__main__":
     print("✅ Бот запущен!")
     bot.infinity_polling()
