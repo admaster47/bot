@@ -57,11 +57,11 @@ PRODUCTS = {
 
 # Реквизиты (ЗАМЕНИТЕ НА СВОИ)
 CRYPTO_WALLETS = {
-    "usdt": "TX7xxxxxxxxxxxxxxxxxxxxxYZ",
-    "ton": "EQDxxxxxxxxxxxxxxxxxxxxxyz"
+    "usdt": "TMG81Fpuo82pt4f7YDS9uTmj4vvYht6dNP",
+    "ton": "UQDkWvIcelgVcFpm2vdtQmBT77JqPRXwOhvYOR678Y9CgPcZ"
 }
-PAYMENT_SITE = "https://example.com/pay"
-PAYMENT_USERNAME = "your_game_username"
+PAYMENT_SITE = "https://split.tg"
+PAYMENT_USERNAME = "@suppyandex"
 
 # --- ГЛАВНОЕ МЕНЮ СНИЗУ ---
 def get_main_menu_keyboard():
@@ -130,7 +130,7 @@ async def start(message: types.Message):
         "   💰 Цена: 5% от баланса\n"
         "🏢 *Корпоративный счет Яндекс* — 5000 руб\n"
         "🚗 *Аккаунт Яндекс Каршеринг* — 1500 руб\n\n"
-        "💸 *Оплата:* USDT, TON или звезды ВК\n\n"
+        "💸 *Оплата:* USDT, TON или по карте\n\n"
         "👇 *Нажмите кнопку «Каталог» ниже*"
     )
     await message.answer(welcome_text, parse_mode="Markdown", reply_markup=get_main_menu_keyboard())
@@ -142,7 +142,7 @@ async def catalog_handler(message: types.Message):
 @dp.message(lambda message: message.text == "🆘 Поддержка")
 async def support_handler(message: types.Message):
     await message.answer(
-        "🆘 *Поддержка*\n\nСвяжитесь с нами: @your_support_username\n\n"
+        "🆘 *Поддержка*\n\nСвяжитесь с нами: @suppyandex\n\n"
         "📌 *Что указать при обращении:*\n"
         "• Номер заказа\n"
         "• Сумму и способ оплаты\n"
@@ -284,7 +284,7 @@ async def payment_callback(callback: CallbackQuery):
             f"🏦 *Кошелек для перевода:*\n`{CRYPTO_WALLETS['usdt']}`\n\n"
             f"✅ *После оплаты:*\n"
             f"1. Сохраните номер заказа: `{order_num}`\n"
-            f"2. Напишите поддержке: @your_support_username\n"
+            f"2. Напишите поддержке: @suppyandex\n"
             f"3. Укажите номер заказа и дату/время перевода\n\n"
             f"⏳ *Срок выдачи:* в течение 24 часов после подтверждения оплаты\n\n"
             f"🔓 После проверки вы получите полный доступ к аккаунту."
@@ -300,7 +300,7 @@ async def payment_callback(callback: CallbackQuery):
             f"🏦 *Кошелек для перевода:*\n`{CRYPTO_WALLETS['ton']}`\n\n"
             f"✅ *После оплаты:*\n"
             f"1. Сохраните номер заказа: `{order_num}`\n"
-            f"2. Напишите поддержке: @your_support_username\n"
+            f"2. Напишите поддержке: @suppyandex\n"
             f"3. Укажите номер заказа и дату/время перевода\n\n"
             f"⏳ *Срок выдачи:* в течение 24 часов после подтверждения оплаты\n\n"
             f"🔓 После проверки вы получите полный доступ к аккаунту."
@@ -321,7 +321,7 @@ async def payment_callback(callback: CallbackQuery):
             f"✅ *После оплаты:*\n"
             f"1. Сохраните номер заказа: `{order_num}`\n"
             f"2. Сделайте скриншот подтверждения оплаты\n"
-            f"3. Напишите поддержке: @your_support_username\n"
+            f"3. Напишите поддержке: @suppyandex\n"
             f"4. Укажите номер заказа и приложите скриншот\n\n"
             f"⏳ *Срок выдачи:* в течение 24 часов после подтверждения оплаты\n\n"
             f"🔓 После проверки вы получите полный доступ к аккаунту."
